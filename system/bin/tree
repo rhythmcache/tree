@@ -1,0 +1,136 @@
+#!/system/bin/bash
+# colors
+NC='\033[0m'  # no color
+DIR_COLOR='\033[1;34m'    # blue
+FILE_COLOR='\033[1;31m'   # red
+LINK_COLOR='\033[1;36m'   # idk
+EXEC_COLOR='\033[1;32m'   # green
+show_all=0
+dirs_only=0
+max_depth=999999
+v_line="│"
+h_line="──"
+l_conn="└"
+t_conn="├"
+no_color=0 
+print_tree() {
+    local dir="$1"
+    local prefix="$2"
+    local depth="$3"
+    [ "$depth" -gt "$max_depth" ] && return
+    local entries=()
+    local find_args=(-mindepth 1 -maxdepth 1)
+    [ "$show_all" -eq 0 ] && find_args+=(-not -path '*/.*')
+    while IFS= read -r -d '' entry; do
+        local type="f"
+        local link_target=""
+        local name="${entry##*/}"
+        if [ -L "$entry" ]; then
+            type="l"
+            link_target=$(readlink "$entry")
+            [ -d "$entry" ] && type="d" 
+        elif [ -d "$entry" ]; then
+            type="d"
+        elif [ -x "$entry" ]; then
+            type="x"
+        fi
+        [ "$dirs_only" -eq 1 ] && [ "$type" = "f" ] && continue
+        entries+=("$type:$name:$link_target")
+    done < <(find "$dir" "${find_args[@]}" -print0 2>/dev/null | sort -z)
+    local total=${#entries[@]}
+    local count=0
+    for entry_info in "${entries[@]}"; do
+        IFS=: read -r type name link_target <<< "$entry_info"
+        ((count++))
+        local is_last=$((count == total))
+        local entry_path="$dir/$name"
+        # connectors
+        if [ "$is_last" -eq 1 ]; then
+            connector="${l_conn}${h_line}"
+            new_prefix="${prefix}    "
+        else
+            connector="${t_conn}${h_line}"
+            new_prefix="${prefix}${v_line}   "
+        fi
+        if [ "$no_color" -eq 1 ]; then
+            # Disable colors
+            printf '%s%s %s\n' "$prefix" "$connector" "$name"
+        else
+            case "$type" in
+                d)
+                    printf '%s%s %b%s%b\n' "$prefix" "$connector" "$DIR_COLOR" "$name" "$NC"
+                    ;;
+                l)
+                    printf '%s%s %b%s%b -> %s\n' "$prefix" "$connector" "$LINK_COLOR" "$name" "$NC" "$link_target"
+                    ;;
+                x)
+                    printf '%s%s %b%s%b\n' "$prefix" "$connector" "$EXEC_COLOR" "$name" "$NC"
+                    ;;
+                *)
+                    printf '%s%s %b%s%b\n' "$prefix" "$connector" "$FILE_COLOR" "$name" "$NC"
+                    ;;
+            esac
+        fi
+        if [ "$type" = "d" ]; then
+            print_tree "$entry_path" "$new_prefix" $((depth + 1))
+        fi
+    done
+}
+
+# Count items
+count_items() {
+    local target="$1"
+    local dirs=0
+    local files=0
+    local find_args=()
+    
+    [ "$show_all" -eq 0 ] && find_args+=(-not -path '*/.*')
+    [ "$max_depth" -ne 999999 ] && find_args+=(-maxdepth "$max_depth")
+    while IFS= read -r -d '' entry; do
+        if [ -L "$entry" ]; then
+            if [ -d "$entry" ]; then
+    ((dirs++))
+else
+    ((files++))
+fi
+        elif [ -d "$entry" ]; then
+            ((dirs++))
+        else
+            ((files++))
+        fi
+    done < <(find "$target" "${find_args[@]}" -print0 2>/dev/null)
+    
+    ((dirs--)) 
+    echo "$dirs:$files"
+}
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -a) show_all=1 ;;
+        -d) dirs_only=1 ;;
+        -L) shift; max_depth="$1" ;;
+        -i) 
+            v_line="|"
+            h_line="--"
+            l_conn="\`"
+            t_conn="|"
+            ;;
+        -n) no_color=1 ;;  
+        -*) 
+	            echo "Usage: $(basename "$0") [-a] [-d] [-L level] [-i] [-n] [directory]"
+	            exit 1
+            ;;
+        *) target_dir="$1" ;;
+    esac
+    shift
+done
+target_dir="${target_dir:-.}"
+if [ -L "$target_dir" ]; then
+    printf '%s -> %s\n' "$target_dir" "$(readlink "$target_dir")"
+else
+    printf '%s\n' "$target_dir"
+fi
+print_tree "$target_dir" "" 1
+IFS=: read -r dirs files < <(count_items "$target_dir")
+printf '\n%d directories' "$dirs"
+[ "$dirs_only" -eq 0 ] && printf ', %d files' "$files"
+printf '\n'

@@ -1,0 +1,6 @@
+id=tree
+name=tree
+version=1
+versionCode=1
+author=rhythmcache.t.me
+description=Just a bash script which tries to mimic the Linux 'tree' binary
