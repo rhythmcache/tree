@@ -12,7 +12,7 @@
 tree -a | #ShowsHiddenFiles
 tree -n | #NoColor
 tree -d | #ShowDirectoriesOnly
-tree -L (numerical value) | #LimitsTheDepthOfTree
+tree -L | #LimitsTheDepthOfTree
 tree -i | #UsesASCII
 ```
 
