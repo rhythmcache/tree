@@ -38,5 +38,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wadbd-${{ env.COMMIT_HASH }}
+          name: wadbd-${{ env.COMMIT_HASH }}.zip
           path: wadbd-${{ env.COMMIT_HASH }}.zip
