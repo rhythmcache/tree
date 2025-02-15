@@ -1,0 +1,42 @@
+name: Package Magisk Module
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Get commit hash
+        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        
+      - name: Update module.prop
+        run: |
+          # Remove updateJson line
+          sed -i '/^updateJson=/d' module.prop
+          # Update version with commit hash
+          sed -i "s/^version=.*/version=${COMMIT_HASH}/" module.prop
+          
+      - name: Create zip package
+        run: |
+          # Create temporary directory
+          mkdir -p temp_module
+          # Copy required files and directories
+          cp -r META-INF system customize.sh uninstall.sh module.prop action.sh webroot temp_module/
+          # Change to temp directory and zip from there
+          cd temp_module
+          zip -r ../wadbd-${COMMIT_HASH}.zip ./*
+          cd ..
+          rm -rf temp_module
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wadbd-${{ env.COMMIT_HASH }}
+          path: wadbd-${{ env.COMMIT_HASH }}.zip
