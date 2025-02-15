@@ -23,28 +23,10 @@ jobs:
           # Update version with commit hash
           sed -i "s/^version=.*/version=${COMMIT_HASH}/" module.prop
           
-      - name: Create Magisk Module ZIP
-        run: |
-          MODULE_ZIP="wadbd-${COMMIT_HASH}.zip"
-          
-          # Ensure a clean working directory
-          rm -rf temp_module "$MODULE_ZIP"
-          mkdir -p temp_module
-
-          # Copy necessary files
-          cp -r META-INF system customize.sh module.prop temp_module/
-
-          # Create the final ZIP file
-          (cd temp_module && zip -r "../$MODULE_ZIP" ./*)
-
-          # Clean up temporary directory
-          rm -rf temp_module
-          
-      - name: Upload Magisk Module Artifact
+      - name: Upload Magisk Module Files
         uses: actions/upload-artifact@v4
         with:
           name: wadbd-${{ env.COMMIT_HASH }}
-          path: wadbd-${{ env.COMMIT_HASH }}.zip
+          path: .
           if-no-files-found: error
           retention-days: 7
-          archive: false
