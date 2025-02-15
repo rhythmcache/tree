@@ -28,7 +28,7 @@ jobs:
           # Create temporary directory
           mkdir -p temp_module
           # Copy required files and directories
-          cp -r META-INF system customize.sh uninstall.sh module.prop action.sh webroot temp_module/
+          cp -r META-INF system customize.sh module.prop temp_module/
           # Change to temp directory and zip from there
           cd temp_module
           zip -r ../wadbd-${COMMIT_HASH}.zip ./*
