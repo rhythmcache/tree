@@ -32,7 +32,7 @@ jobs:
           mkdir -p temp_module
 
           # Copy necessary files
-          cp -r META-INF system customize.sh module.prop temp_module/
+          cp -r META-INF system customize.sh uninstall.sh module.prop action.sh LICENSE webroot temp_module/
 
           # Create the final ZIP file
           (cd temp_module && zip -r "../$MODULE_ZIP" ./*)
@@ -46,3 +46,5 @@ jobs:
           name: wadbd-${{ env.COMMIT_HASH }}
           path: wadbd-${{ env.COMMIT_HASH }}.zip
           if-no-files-found: error
+          retention-days: 7
+          archive: false
