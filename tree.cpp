@@ -305,70 +305,83 @@ private:
         }
     }
 
-    void print_tree(const fs::path& dir_path, const std::string& prefix, int depth) {
-        if (depth > opts.max_depth) return;
+void print_tree(const fs::path& dir_path, const std::string& prefix, int depth) {
+    if (depth > opts.max_depth) return;
 
-        std::vector<fs::path> entries;
-        try {
-            for (const auto& entry : fs::directory_iterator(dir_path)) {
-                if (!opts.show_all && entry.path().filename().string()[0] == '.') {
-                    continue;
-                }
-                
-                if (opts.dirs_only && !fs::is_directory(entry.path())) {
-                    continue;
-                }
-                
-                if (opts.only_symlinks && !fs::is_symlink(entry.path())) {
-                    if (!fs::is_directory(entry.path())) continue;
-                }
-                
-                if (opts.only_executables && !is_executable(entry.path())) {
-                    if (!fs::is_directory(entry.path())) continue;
-                }
-                
-                entries.push_back(entry.path());
+    std::vector<fs::path> entries;
+    std::vector<fs::path> visible_entries; // Add this to track which entries will be shown
+    
+    try {
+        for (const auto& entry : fs::directory_iterator(dir_path)) {
+            if (!opts.show_all && entry.path().filename().string()[0] == '.') {
+                continue;
             }
-        } catch (const fs::filesystem_error&) {
-            std::cerr << "Error: Permission denied or other error accessing " 
-                     << dir_path << std::endl;
-            return;
-        }
-
-        std::sort(entries.begin(), entries.end());
-
-        for (size_t i = 0; i < entries.size(); ++i) {
-            bool is_last = (i == entries.size() - 1);
-            bool is_dir = fs::is_directory(entries[i]);
             
+            entries.push_back(entry.path());
+            
+            bool is_dir = fs::is_directory(entry.path());
             bool show_entry = true;
             
-            if (opts.pattern_match) {
+            if (opts.dirs_only && !is_dir) {
+                show_entry = false;
+            }
+            
+            if (show_entry && opts.only_symlinks && !fs::is_symlink(entry.path())) {
+                if (!is_dir) show_entry = false;
+            }
+            
+            if (show_entry && opts.only_executables && !is_executable(entry.path())) {
+                if (!is_dir) show_entry = false;
+            }
+            
+            if (show_entry && opts.pattern_match) {
                 if (is_dir) {
-                    show_entry = is_on_path_to_match(entries[i]);
+                    show_entry = is_on_path_to_match(entry.path());
                 } else {
-                    show_entry = matches_pattern(entries[i]);
+                    show_entry = matches_pattern(entry.path());
                 }
             }
             
             if (show_entry && opts.size_filter) {
                 if (is_dir) {
-                    show_entry = is_on_path_to_size_match(entries[i]);
+                    show_entry = is_on_path_to_size_match(entry.path());
                 } else {
-                    show_entry = is_size_in_range(entries[i]);
+                    show_entry = is_size_in_range(entry.path());
                 }
             }
             
             if (show_entry) {
-                print_entry(entries[i], prefix, is_last);
-                
-                if (is_dir) {
-                    std::string new_prefix = prefix + (is_last ? "    " : chars.vertical + "   ");
-                    print_tree(entries[i], new_prefix, depth + 1);
-                }
+                visible_entries.push_back(entry.path());
+            }
+        }
+    } catch (const fs::filesystem_error&) {
+        std::cerr << "Error: Permission denied or other error accessing " 
+                 << dir_path << std::endl;
+        return;
+    }
+
+    std::sort(entries.begin(), entries.end());
+    std::sort(visible_entries.begin(), visible_entries.end());
+
+    for (size_t i = 0; i < entries.size(); ++i) {
+        bool is_dir = fs::is_directory(entries[i]);
+        
+        auto it = std::find(visible_entries.begin(), visible_entries.end(), entries[i]);
+        bool is_visible = (it != visible_entries.end());
+        
+        if (is_visible) {
+            size_t visible_index = std::distance(visible_entries.begin(), it);
+            bool is_last = (visible_index == visible_entries.size() - 1);
+            
+            print_entry(entries[i], prefix, is_last);
+            
+            if (is_dir) {
+                std::string new_prefix = prefix + (is_last ? "    " : chars.vertical + "   ");
+                print_tree(entries[i], new_prefix, depth + 1);
             }
         }
     }
+}
 
 public:
     TreePrinter(const Options& options) 
